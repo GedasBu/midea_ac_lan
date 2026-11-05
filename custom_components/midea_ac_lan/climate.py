@@ -996,8 +996,22 @@ class MideaC3Climate(MideaClimate):
 
     @property
     def current_temperature(self) -> float | None:
-        """Midea C3 Climate current temperature."""
-        return None
+        """Midea C3 Climate current temperature.
+
+        Room-temperature zones report the room sensor (Ta). Water-temperature
+        zones report the leaving water temperature: T1 for zone 1 and the
+        mixed-circuit outlet (Tw2) for zone 2.
+        """
+        room_mode = (
+            C3Attributes.zone1_room_temp_mode,
+            C3Attributes.zone2_room_temp_mode,
+        )[self._zone]
+        if self._device.get_attribute(room_mode):
+            attribute = C3Attributes.temp_ta
+        else:
+            attribute = (C3Attributes.temp_t1, C3Attributes.temp_tw2)[self._zone]
+        value = self._device.get_attribute(attribute)
+        return None if value is None else float(cast("float", value))
 
     def set_temperature(self, **kwargs: Any) -> None:  # ruff:ignore[any-type]
         """Midea C3 Climate set temperature."""
