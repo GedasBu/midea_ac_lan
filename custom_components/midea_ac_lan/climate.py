@@ -998,18 +998,27 @@ class MideaC3Climate(MideaClimate):
     def current_temperature(self) -> float | None:
         """Midea C3 Climate current temperature.
 
-        Room-temperature zones report the room sensor (Ta). Water-temperature
-        zones report the leaving water temperature: T1 for zone 1 and the
-        mixed-circuit outlet (Tw2) for zone 2.
+        The sensor follows the zone's configured temperature type
+        (zone_temp_type: True = water, False = room), not the derived
+        *_temp_mode flags, which are False whenever the zone is off. Water
+        zones report the leaving water temperature (T1 for zone 1, Tw2 for
+        zone 2); room zones report the room sensor (Ta). An unknown type
+        returns None.
+
+        Native 17100007 telemetry currently decodes T1 only; Ta and Tw2 are
+        filled by the legacy decoders, so on that model room zones and zone 2
+        report None until the library decodes them.
         """
-        room_mode = (
-            C3Attributes.zone1_room_temp_mode,
-            C3Attributes.zone2_room_temp_mode,
-        )[self._zone]
-        if self._device.get_attribute(room_mode):
-            attribute = C3Attributes.temp_ta
-        else:
+        temp_types = self._device.get_attribute(C3Attributes.zone_temp_type)
+        if not isinstance(temp_types, list) or len(temp_types) <= self._zone:
+            return None
+        water = temp_types[self._zone]
+        if water is None:
+            return None
+        if water:
             attribute = (C3Attributes.temp_t1, C3Attributes.temp_tw2)[self._zone]
+        else:
+            attribute = C3Attributes.temp_ta
         value = self._device.get_attribute(attribute)
         return None if value is None else float(cast("float", value))
 
